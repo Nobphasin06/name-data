@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Name Data - ระบบจัดการข้อมูล</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- SweetAlert2 CSS & JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>ระบบจัดการข้อมูล (Name Data)</h1>
+            <button id="darkModeToggle" class="btn-icon" title="เปิด/ปิด โหมดกลางคืน">
+                🌙
+            </button>
+        </div>
+
+        <!-- Form Section -->
+        <div class="glass-panel form-section">
+            <h2 id="formTitle">เพิ่มข้อมูลใหม่</h2>
+            <form id="nameForm">
+                <input type="hidden" id="nameId">
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                    <div class="form-group">
+                        <label for="nameInput">ชื่อ-นามสกุล</label>
+                        <input type="text" id="nameInput" placeholder="เช่น สมชาย ใจดี" required autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneInput">เบอร์ติดต่อ</label>
+                        <input type="text" id="phoneInput" placeholder="เช่น 081-234-5678" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="addressInput">ที่อยู่</label>
+                    <input type="text" id="addressInput" placeholder="เช่น 123 ถ.สุขุมวิท แขวง/เขต กรุงเทพฯ" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="descInput">รายละเอียดเพิ่มเติม</label>
+                    <input type="text" id="descInput" placeholder="เช่น ตำแหน่งงาน, บริษัท, หรือหมายเหตุอื่นๆ" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="createdAtInput">วันที่และเวลาที่บันทึก (ปล่อยว่างไว้เพื่อให้ระบบตั้งค่าอัตโนมัติ)</label>
+                    <input type="datetime-local" id="createdAtInput">
+                </div>
+
+                <div class="button-group">
+                    <button type="submit">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>บันทึกข้อมูล</span>
+                    </button>
+                    <button type="button" id="cancelBtn" style="display: none;">ยกเลิก</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- List Section -->
+        <div class="glass-panel list-section">
+            <div class="list-header">
+                <h2 style="margin: 0;">รายชื่อทั้งหมด</h2>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <!-- Live Search -->
+                    <div class="search-box">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" id="searchInput" placeholder="ค้นหาชื่อ, เบอร์, ที่อยู่..." autocomplete="off">
+                    </div>
+                    
+                    <!-- Export Button -->
+                    <button id="exportCsvBtn" class="btn-export">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Export CSV
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>ข้อมูลติดต่อ</th>
+                            <th>ที่อยู่</th>
+                            <th>รายละเอียด</th>
+                            <th>วันที่บันทึก</th>
+                            <th style="width: 180px; text-align: center;">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- JS renders data here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
