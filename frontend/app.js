@@ -30,6 +30,9 @@ imageInput.addEventListener('change', function() {
     } else {
         imagePreview.src = '';
         imagePreviewContainer.style.display = 'none';
+    }
+});
+
 const searchInput = document.getElementById('searchInput');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const darkModeToggle = document.getElementById('darkModeToggle');
@@ -143,10 +146,6 @@ function renderTable(data) {
             } else {
                 dateStr = itemDate;
             }
-        if (item.createdAt) {
-            const d = new Date(item.createdAt);
-            if (!isNaN(d.getTime())) dateStr = d.toLocaleString('th-TH');
-            else dateStr = item.createdAt;
         }
 
         const tr = document.createElement('tr');
@@ -173,8 +172,6 @@ function renderTable(data) {
             <td data-label="จัดการ" style="text-align: center;">
                 <div class="action-buttons" style="justify-content: center;">
                     <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || item.createdat || ''}', '${item.image || ''}')">แก้ไข</button>
-                <div class="action-buttons">
-                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}')">แก้ไข</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
             </td>
@@ -238,18 +235,15 @@ form.addEventListener('submit', async (e) => {
             // Update
             res = await fetch(`${API_URL}/${id}`, {
                 method: 'PUT',
-                body: formData // No Content-Type header needed for FormData
+                body: formData // Use formData to support image upload
             });
+            Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         } else {
             // Create
             res = await fetch(API_URL, {
                 method: 'POST',
                 body: formData
             });
-            await fetch(`${API_URL}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
-        } else {
-            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         }
         
