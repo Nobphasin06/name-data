@@ -1,47 +1,78 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Name Data - CRUD App</title>
+    <title>Name Data - ระบบจัดการข้อมูล</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-    <div class="container">
-        <h1>Name Data Management</h1>
-        
+    <div class="container" style="max-width: 1200px;">
+        <h1>ระบบจัดการข้อมูล (Name Data)</h1>
+
         <div class="glass-panel form-section">
-            <h2>Add / Edit Name</h2>
+            <h2 id="formTitle">เพิ่มข้อมูลใหม่</h2>
             <form id="nameForm">
                 <input type="hidden" id="nameId">
-                <div class="form-group">
-                    <label for="nameInput">Name</label>
-                    <input type="text" id="nameInput" placeholder="Enter full name" required>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                    <div class="form-group">
+                        <label for="nameInput">ชื่อ-นามสกุล</label>
+                        <input type="text" id="nameInput" placeholder="เช่น สมชาย ใจดี" required autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phoneInput">เบอร์ติดต่อ</label>
+                        <input type="text" id="phoneInput" placeholder="เช่น 081-234-5678" autocomplete="off">
+                    </div>
                 </div>
+
                 <div class="form-group">
-                    <label for="descInput">Description</label>
-                    <input type="text" id="descInput" placeholder="Enter details or notes">
+                    <label for="addressInput">ที่อยู่</label>
+                    <input type="text" id="addressInput" placeholder="เช่น 123 ถ.สุขุมวิท แขวง/เขต กรุงเทพฯ" autocomplete="off">
                 </div>
+
+                <div class="form-group">
+                    <label for="descInput">รายละเอียดเพิ่มเติม</label>
+                    <input type="text" id="descInput" placeholder="เช่น ตำแหน่งงาน, บริษัท, หรือหมายเหตุอื่นๆ" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="createdAtInput">วันที่และเวลาที่บันทึก (ปล่อยว่างไว้เพื่อให้ระบบตั้งค่าอัตโนมัติ)</label>
+                    <input type="datetime-local" id="createdAtInput"
+                        style="width: 100%; padding: 16px 20px; border: 2px solid transparent; border-radius: 12px; font-size: 1.05rem; font-family: 'Outfit', 'Sarabun', sans-serif; background: rgba(255, 255, 255, 0.8); transition: all 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
+                </div>
+
                 <div class="button-group">
-                    <button type="submit">Save</button>
-                    <button type="button" id="cancelBtn" style="display: none;">Cancel</button>
+                    <button type="submit">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>บันทึกข้อมูล</span>
+                    </button>
+                    <button type="button" id="cancelBtn" style="display: none;">ยกเลิก</button>
                 </div>
             </form>
         </div>
 
         <div class="glass-panel list-section">
-            <h2>Name List</h2>
-            <div style="overflow-x: auto;">
+            <h2>รายชื่อทั้งหมด</h2>
+            <div class="table-container">
                 <table id="dataTable">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Description</th>
-                            <th style="width: 150px;">Actions</th>
+                            <th>ข้อมูลติดต่อ</th>
+                            <th>ที่อยู่</th>
+                            <th>รายละเอียด</th>
+                            <th>วันที่บันทึก</th>
+                            <th style="width: 180px; text-align: center;">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
-                        <!-- ข้อมูลจะถูก render ที่นี่ด้วย JS -->
+                        <!-- JS renders data here -->
                     </tbody>
                 </table>
             </div>
@@ -50,4 +81,5 @@
 
     <script src="app.js"></script>
 </body>
+
 </html>

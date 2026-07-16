@@ -29,10 +29,21 @@ async function initDB() {
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
+            phone TEXT,
+            address TEXT,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Try to alter table to add new columns just in case it was created before
+    try {
+        await db.exec('ALTER TABLE names ADD COLUMN phone TEXT');
+    } catch (e) {} // Ignore if column already exists
+    try {
+        await db.exec('ALTER TABLE names ADD COLUMN address TEXT');
+    } catch (e) {} // Ignore if column already exists
+
     console.log("SQLite Database initialized.");
 }
 
@@ -42,10 +53,9 @@ initDB().catch(err => {
 
 // API Routes (CRUD)
 
-// 1. Read All (GET /api/names)
+// 1. Read All
 app.get('/api/names', async (req, res) => {
     try {
-        // Sort by newest first
         const sortedData = await db.all('SELECT * FROM names ORDER BY createdAt DESC');
         res.json(sortedData);
     } catch (error) {
@@ -53,21 +63,24 @@ app.get('/api/names', async (req, res) => {
     }
 });
 
-// 2. Create (POST /api/names)
+// 2. Create
 app.post('/api/names', async (req, res) => {
     try {
         const newName = {
             id: Date.now().toString(),
             name: req.body.name || '',
-            description: req.body.description || ''
+            description: req.body.description || '',
+            phone: req.body.phone || '',
+            address: req.body.address || '',
+            createdAt: req.body.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
         
         await db.run(
-            'INSERT INTO names (id, name, description) VALUES (?, ?, ?)',
-            [newName.id, newName.name, newName.description]
+            'INSERT INTO names (id, name, description, phone, address, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [newName.id, newName.name, newName.description, newName.phone, newName.address, newName.createdAt, newName.updatedAt]
         );
         
-        // Fetch the newly created record
         const createdRecord = await db.get('SELECT * FROM names WHERE id = ?', newName.id);
         res.status(201).json(createdRecord);
     } catch (error) {
@@ -75,7 +88,7 @@ app.post('/api/names', async (req, res) => {
     }
 });
 
-// 3. Update (PUT /api/names/:id)
+// 3. Update
 app.put('/api/names/:id', async (req, res) => {
     try {
         const id = req.params.id;
@@ -87,10 +100,13 @@ app.put('/api/names/:id', async (req, res) => {
 
         const updatedName = req.body.name || existing.name;
         const updatedDesc = req.body.description || existing.description;
+        const updatedPhone = req.body.phone || existing.phone;
+        const updatedAddress = req.body.address || existing.address;
+        const updatedCreatedAt = req.body.createdAt || existing.createdAt;
 
         await db.run(
-            "UPDATE names SET name = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?",
-            [updatedName, updatedDesc, id]
+            "UPDATE names SET name = ?, description = ?, phone = ?, address = ?, createdAt = ?, updatedAt = ? WHERE id = ?",
+            [updatedName, updatedDesc, updatedPhone, updatedAddress, updatedCreatedAt, new Date().toISOString(), id]
         );
 
         const updatedRecord = await db.get('SELECT * FROM names WHERE id = ?', id);
@@ -100,7 +116,7 @@ app.put('/api/names/:id', async (req, res) => {
     }
 });
 
-// 4. Delete (DELETE /api/names/:id)
+// 4. Delete
 app.delete('/api/names/:id', async (req, res) => {
     try {
         const id = req.params.id;
