@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Name Data - CRUD App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Name Data Management</h1>
+        
+        <div class="glass-panel form-section">
+            <h2>Add / Edit Name</h2>
+            <form id="nameForm">
+                <input type="hidden" id="nameId">
+                <div class="form-group">
+                    <label for="nameInput">Name</label>
+                    <input type="text" id="nameInput" placeholder="Enter full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="descInput">Description</label>
+                    <input type="text" id="descInput" placeholder="Enter details or notes">
+                </div>
+                <div class="button-group">
+                    <button type="submit">Save</button>
+                    <button type="button" id="cancelBtn" style="display: none;">Cancel</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="glass-panel list-section">
+            <h2>Name List</h2>
+            <div style="overflow-x: auto;">
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th style="width: 150px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- ข้อมูลจะถูก render ที่นี่ด้วย JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
