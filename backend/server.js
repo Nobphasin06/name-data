@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const sqlite3 = require('sqlite3');
+const { open } = require('sqlite');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,64 +12,109 @@ app.use(cors());
 app.use(express.json());
 
 // Serve Static Frontend files
-// เสิร์ฟไฟล์จากโฟลเดอร์ frontend เพื่อให้ผู้ใช้เปิดผ่าน http://localhost:3000 ได้เลย
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// In-memory Database
-let namesData = [];
+let db;
+
+// Initialize SQLite Database
+async function initDB() {
+    db = await open({
+        filename: path.join(__dirname, 'database.sqlite'),
+        driver: sqlite3.Database
+    });
+
+    // Create table if it doesn't exist
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS names (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+    console.log("SQLite Database initialized.");
+}
+
+initDB().catch(err => {
+    console.error('Failed to initialize database:', err);
+});
 
 // API Routes (CRUD)
 
 // 1. Read All (GET /api/names)
-app.get('/api/names', (req, res) => {
-    // Sort by newest first
-    const sortedData = [...namesData].sort((a, b) => b.createdAt - a.createdAt);
-    res.json(sortedData);
+app.get('/api/names', async (req, res) => {
+    try {
+        // Sort by newest first
+        const sortedData = await db.all('SELECT * FROM names ORDER BY createdAt DESC');
+        res.json(sortedData);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // 2. Create (POST /api/names)
-app.post('/api/names', (req, res) => {
-    const newName = {
-        id: Date.now().toString(),
-        name: req.body.name || '',
-        description: req.body.description || '',
-        createdAt: new Date(),
-        updatedAt: new Date()
-    };
-    namesData.push(newName);
-    res.status(201).json(newName);
+app.post('/api/names', async (req, res) => {
+    try {
+        const newName = {
+            id: Date.now().toString(),
+            name: req.body.name || '',
+            description: req.body.description || ''
+        };
+        
+        await db.run(
+            'INSERT INTO names (id, name, description) VALUES (?, ?, ?)',
+            [newName.id, newName.name, newName.description]
+        );
+        
+        // Fetch the newly created record
+        const createdRecord = await db.get('SELECT * FROM names WHERE id = ?', newName.id);
+        res.status(201).json(createdRecord);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // 3. Update (PUT /api/names/:id)
-app.put('/api/names/:id', (req, res) => {
-    const id = req.params.id;
-    const index = namesData.findIndex(item => item.id === id);
-    
-    if (index === -1) {
-        return res.status(404).json({ message: 'Name not found' });
+app.put('/api/names/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const existing = await db.get('SELECT * FROM names WHERE id = ?', id);
+        
+        if (!existing) {
+            return res.status(404).json({ message: 'Name not found' });
+        }
+
+        const updatedName = req.body.name || existing.name;
+        const updatedDesc = req.body.description || existing.description;
+
+        await db.run(
+            "UPDATE names SET name = ?, description = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?",
+            [updatedName, updatedDesc, id]
+        );
+
+        const updatedRecord = await db.get('SELECT * FROM names WHERE id = ?', id);
+        res.json(updatedRecord);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
-
-    namesData[index] = {
-        ...namesData[index],
-        name: req.body.name || namesData[index].name,
-        description: req.body.description || namesData[index].description,
-        updatedAt: new Date()
-    };
-
-    res.json(namesData[index]);
 });
 
 // 4. Delete (DELETE /api/names/:id)
-app.delete('/api/names/:id', (req, res) => {
-    const id = req.params.id;
-    const index = namesData.findIndex(item => item.id === id);
-    
-    if (index === -1) {
-        return res.status(404).json({ message: 'Name not found' });
-    }
+app.delete('/api/names/:id', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const existing = await db.get('SELECT * FROM names WHERE id = ?', id);
+        
+        if (!existing) {
+            return res.status(404).json({ message: 'Name not found' });
+        }
 
-    namesData.splice(index, 1);
-    res.json({ message: 'Deleted successfully' });
+        await db.run('DELETE FROM names WHERE id = ?', id);
+        res.json({ message: 'Deleted successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 app.listen(PORT, () => {
