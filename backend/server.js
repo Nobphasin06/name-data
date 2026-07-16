@@ -3,6 +3,26 @@ const cors = require('cors');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
+const multer = require('multer');
+const fs = require('fs');
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+// Set up multer for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+const upload = multer({ storage: storage });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +33,7 @@ app.use(express.json());
 
 // Serve Static Frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 let db;
 
@@ -31,6 +52,7 @@ async function initDB() {
             description TEXT,
             phone TEXT,
             address TEXT,
+            imageUrl TEXT,
             createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
             updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -42,6 +64,9 @@ async function initDB() {
     } catch (e) {} // Ignore if column already exists
     try {
         await db.exec('ALTER TABLE names ADD COLUMN address TEXT');
+    } catch (e) {} // Ignore if column already exists
+    try {
+        await db.exec('ALTER TABLE names ADD COLUMN imageUrl TEXT');
     } catch (e) {} // Ignore if column already exists
 
     console.log("SQLite Database initialized.");
@@ -64,21 +89,23 @@ app.get('/api/names', async (req, res) => {
 });
 
 // 2. Create
-app.post('/api/names', async (req, res) => {
+app.post('/api/names', upload.single('image'), async (req, res) => {
     try {
+        const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         const newName = {
             id: Date.now().toString(),
             name: req.body.name || '',
             description: req.body.description || '',
             phone: req.body.phone || '',
             address: req.body.address || '',
+            imageUrl: imageUrl,
             createdAt: req.body.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
         
         await db.run(
-            'INSERT INTO names (id, name, description, phone, address, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [newName.id, newName.name, newName.description, newName.phone, newName.address, newName.createdAt, newName.updatedAt]
+            'INSERT INTO names (id, name, description, phone, address, imageUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [newName.id, newName.name, newName.description, newName.phone, newName.address, newName.imageUrl, newName.createdAt, newName.updatedAt]
         );
         
         const createdRecord = await db.get('SELECT * FROM names WHERE id = ?', newName.id);
@@ -89,7 +116,7 @@ app.post('/api/names', async (req, res) => {
 });
 
 // 3. Update
-app.put('/api/names/:id', async (req, res) => {
+app.put('/api/names/:id', upload.single('image'), async (req, res) => {
     try {
         const id = req.params.id;
         const existing = await db.get('SELECT * FROM names WHERE id = ?', id);
@@ -103,10 +130,11 @@ app.put('/api/names/:id', async (req, res) => {
         const updatedPhone = req.body.phone || existing.phone;
         const updatedAddress = req.body.address || existing.address;
         const updatedCreatedAt = req.body.createdAt || existing.createdAt;
+        const updatedImageUrl = req.file ? `/uploads/${req.file.filename}` : existing.imageUrl;
 
         await db.run(
-            "UPDATE names SET name = ?, description = ?, phone = ?, address = ?, createdAt = ?, updatedAt = ? WHERE id = ?",
-            [updatedName, updatedDesc, updatedPhone, updatedAddress, updatedCreatedAt, new Date().toISOString(), id]
+            "UPDATE names SET name = ?, description = ?, phone = ?, address = ?, imageUrl = ?, createdAt = ?, updatedAt = ? WHERE id = ?",
+            [updatedName, updatedDesc, updatedPhone, updatedAddress, updatedImageUrl, updatedCreatedAt, new Date().toISOString(), id]
         );
 
         const updatedRecord = await db.get('SELECT * FROM names WHERE id = ?', id);

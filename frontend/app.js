@@ -9,6 +9,9 @@ const phoneInput = document.getElementById('phoneInput');
 const addressInput = document.getElementById('addressInput');
 const descInput = document.getElementById('descInput');
 const createdAtInput = document.getElementById('createdAtInput');
+const imageInput = document.getElementById('imageInput');
+const imagePreview = document.getElementById('imagePreview');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
 const tableBody = document.getElementById('tableBody');
 const cancelBtn = document.getElementById('cancelBtn');
 const submitBtn = form.querySelector('button[type="submit"]');
@@ -18,6 +21,18 @@ const exportCsvBtn = document.getElementById('exportCsvBtn');
 const darkModeToggle = document.getElementById('darkModeToggle');
 
 let allData = []; // Store original data for searching
+
+// Image Preview logic
+imageInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        const url = URL.createObjectURL(this.files[0]);
+        imagePreview.src = url;
+        imagePreviewContainer.style.display = 'block';
+    } else {
+        imagePreview.src = '';
+        imagePreviewContainer.style.display = 'none';
+    }
+});
 
 // Dark Mode Logic
 if (localStorage.getItem('darkMode') === 'enabled') {
@@ -124,7 +139,11 @@ function renderTable(data) {
         }
 
         const tr = document.createElement('tr');
+        const imgTag = item.imageUrl ? `<img src="${item.imageUrl}" alt="Profile" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">` : `<div style="width: 50px; height: 50px; border-radius: 50%; background-color: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.8rem;">N/A</div>`;
         tr.innerHTML = `
+            <td data-label="รูปภาพ" style="text-align: center;">
+                ${imgTag}
+            </td>
             <td data-label="ข้อมูลติดต่อ">
                 <div class="td-name">${escapeHTML(item.name)}</div>
                 <div style="font-size: 0.9rem; color: var(--primary); margin-top: 4px;">${item.phone ? '📞 ' + escapeHTML(item.phone) : ''}</div>
@@ -139,7 +158,7 @@ function renderTable(data) {
             </td>
             <td data-label="จัดการ" style="text-align: center;">
                 <div class="action-buttons">
-                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}')">แก้ไข</button>
+                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}', '${item.imageUrl || ''}')">แก้ไข</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
             </td>
@@ -174,23 +193,25 @@ form.addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
 
     const id = nameIdInput.value;
-    const payload = {
-        name: nameInput.value,
-        phone: phoneInput.value,
-        address: addressInput.value,
-        description: descInput.value
-    };
+    const formData = new FormData();
+    formData.append('name', nameInput.value);
+    formData.append('phone', phoneInput.value);
+    formData.append('address', addressInput.value);
+    formData.append('description', descInput.value);
 
     if (createdAtInput.value) {
-        payload.createdAt = new Date(createdAtInput.value).toISOString();
+        formData.append('createdAt', new Date(createdAtInput.value).toISOString());
+    }
+    if (imageInput.files[0]) {
+        formData.append('image', imageInput.files[0]);
     }
 
     try {
         if (id) {
-            await fetch(`${API_URL}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            await fetch(`${API_URL}/${id}`, { method: 'PUT', body: formData });
             Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         } else {
-            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            await fetch(API_URL, { method: 'POST', body: formData });
             Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         }
         
@@ -210,13 +231,22 @@ form.addEventListener('submit', async (e) => {
 });
 
 // Populate form for edit
-window.editItem = function(id, name, description, phone, address, createdAt) {
+window.editItem = function(id, name, description, phone, address, createdAt, imageUrl) {
     nameIdInput.value = id;
     nameInput.value = name;
     descInput.value = description;
     phoneInput.value = phone;
     addressInput.value = address;
     createdAtInput.value = createdAt ? formatToDatetimeLocal(createdAt) : '';
+    
+    imageInput.value = '';
+    if (imageUrl) {
+        imagePreview.src = imageUrl;
+        imagePreviewContainer.style.display = 'block';
+    } else {
+        imagePreview.src = '';
+        imagePreviewContainer.style.display = 'none';
+    }
     
     formTitle.textContent = 'แก้ไขข้อมูล';
     if (submitBtn.querySelector('span')) {
@@ -237,6 +267,9 @@ function resetForm() {
     phoneInput.value = '';
     addressInput.value = '';
     createdAtInput.value = '';
+    imageInput.value = '';
+    imagePreview.src = '';
+    imagePreviewContainer.style.display = 'none';
     
     formTitle.textContent = 'เพิ่มข้อมูลใหม่';
     if (submitBtn.querySelector('span')) {

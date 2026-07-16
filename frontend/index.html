@@ -44,6 +44,14 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="imageInput">รูปภาพโปรไฟล์</label>
+                    <input type="file" id="imageInput" accept="image/*">
+                    <div id="imagePreviewContainer" style="display: none; margin-top: 10px;">
+                        <img id="imagePreview" src="" alt="Preview" style="max-width: 150px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="descInput">รายละเอียดเพิ่มเติม</label>
                     <input type="text" id="descInput" placeholder="เช่น ตำแหน่งงาน, บริษัท, หรือหมายเหตุอื่นๆ" autocomplete="off">
                 </div>
@@ -93,6 +101,7 @@
                 <table id="dataTable">
                     <thead>
                         <tr>
+                            <th style="width: 60px;">รูปภาพ</th>
                             <th>ข้อมูลติดต่อ</th>
                             <th>ที่อยู่</th>
                             <th>รายละเอียด</th>

@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # กำหนด working directory เป็น /app
 WORKDIR /app
@@ -8,7 +8,7 @@ COPY backend/package*.json ./backend/
 
 # เข้าไปที่โฟลเดอร์ backend และรัน npm install (ติดตั้งเฉพาะ dependencies สำหรับ production)
 WORKDIR /app/backend
-RUN npm install --production
+RUN npm install --omit=dev
 
 # กลับมาที่ /app และคัดลอกไฟล์ทั้งหมดของทั้ง frontend และ backend เข้ามาใน container
 WORKDIR /app
