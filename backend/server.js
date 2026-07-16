@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -8,6 +11,21 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Expose the uploads directory so the frontend can fetch images
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Configure Multer for image upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, path.join(__dirname, 'uploads'));
+    },
+    filename: function (req, file, cb) {
+        // Create unique filename
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
 
 // Initialize PostgreSQL Database connection pool
 const pool = new Pool({
@@ -33,12 +51,12 @@ async function initDB() {
         `);
         
         // Try to add columns if they don't exist
-        try {
-            await pool.query('ALTER TABLE names ADD COLUMN phone TEXT');
-        } catch (e) {}
-        try {
-            await pool.query('ALTER TABLE names ADD COLUMN address TEXT');
-        } catch (e) {}
+        const columnsToAdd = ['phone', 'address', 'image'];
+        for (const col of columnsToAdd) {
+            try {
+                await pool.query(`ALTER TABLE names ADD COLUMN ${col} TEXT`);
+            } catch (e) {}
+        }
 
         console.log("PostgreSQL Database initialized.");
     } catch (err) {
@@ -60,8 +78,8 @@ app.get('/api/names', async (req, res) => {
     }
 });
 
-// 2. Create
-app.post('/api/names', async (req, res) => {
+// 2. Create (Supports Image Upload)
+app.post('/api/names', upload.single('image'), async (req, res) => {
     try {
         const newName = {
             id: Date.now().toString(),
@@ -69,13 +87,14 @@ app.post('/api/names', async (req, res) => {
             description: req.body.description || '',
             phone: req.body.phone || '',
             address: req.body.address || '',
+            image: req.file ? req.file.filename : null,
             createdAt: req.body.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
         
         await pool.query(
-            'INSERT INTO names (id, name, description, phone, address, createdAt, updatedAt) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-            [newName.id, newName.name, newName.description, newName.phone, newName.address, newName.createdAt, newName.updatedAt]
+            'INSERT INTO names (id, name, description, phone, address, image, createdAt, updatedAt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+            [newName.id, newName.name, newName.description, newName.phone, newName.address, newName.image, newName.createdAt, newName.updatedAt]
         );
         
         const result = await pool.query('SELECT * FROM names WHERE id = $1', [newName.id]);
@@ -85,8 +104,8 @@ app.post('/api/names', async (req, res) => {
     }
 });
 
-// 3. Update
-app.put('/api/names/:id', async (req, res) => {
+// 3. Update (Supports Image Upload)
+app.put('/api/names/:id', upload.single('image'), async (req, res) => {
     try {
         const id = req.params.id;
         const existingResult = await pool.query('SELECT * FROM names WHERE id = $1', [id]);
@@ -101,10 +120,24 @@ app.put('/api/names/:id', async (req, res) => {
         const updatedPhone = req.body.phone || existing.phone;
         const updatedAddress = req.body.address || existing.address;
         const updatedCreatedAt = req.body.createdAt || existing.createdat;
+        
+        let updatedImage = existing.image;
+        if (req.file) {
+            // New image uploaded, replace the old one
+            updatedImage = req.file.filename;
+            
+            // Delete old physical file if it exists
+            if (existing.image) {
+                const oldImagePath = path.join(__dirname, 'uploads', existing.image);
+                if (fs.existsSync(oldImagePath)) {
+                    fs.unlinkSync(oldImagePath);
+                }
+            }
+        }
 
         await pool.query(
-            "UPDATE names SET name = $1, description = $2, phone = $3, address = $4, createdAt = $5, updatedAt = $6 WHERE id = $7",
-            [updatedName, updatedDesc, updatedPhone, updatedAddress, updatedCreatedAt, new Date().toISOString(), id]
+            "UPDATE names SET name = $1, description = $2, phone = $3, address = $4, image = $5, createdAt = $6, updatedAt = $7 WHERE id = $8",
+            [updatedName, updatedDesc, updatedPhone, updatedAddress, updatedImage, updatedCreatedAt, new Date().toISOString(), id]
         );
 
         const updatedRecord = await pool.query('SELECT * FROM names WHERE id = $1', [id]);
@@ -124,7 +157,19 @@ app.delete('/api/names/:id', async (req, res) => {
             return res.status(404).json({ message: 'Name not found' });
         }
 
+        const existing = existingResult.rows[0];
+
+        // Delete from DB
         await pool.query('DELETE FROM names WHERE id = $1', [id]);
+        
+        // Delete physical file
+        if (existing.image) {
+            const imagePath = path.join(__dirname, 'uploads', existing.image);
+            if (fs.existsSync(imagePath)) {
+                fs.unlinkSync(imagePath);
+            }
+        }
+
         res.json({ message: 'Deleted successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
