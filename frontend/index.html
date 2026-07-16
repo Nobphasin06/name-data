@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Name Data - ระบบจัดการข้อมูล</title>
-    <link rel="stylesheet" href="style.css">
+    <title>ระบบจัดการข้อมูลรายชื่อ</title>
+    <link rel="stylesheet" href="style.css?v=2">
 </head>
 
 <body>
@@ -40,6 +40,16 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="imageInput">รูปภาพโปรไฟล์/โลโก้</label>
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="imageInput" accept="image/*">
+                    </div>
+                    <div id="imagePreviewContainer" class="image-preview-container">
+                        <img id="imagePreview" src="" alt="Preview" class="image-preview">
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label for="createdAtInput">วันที่และเวลาที่บันทึก (ปล่อยว่างไว้เพื่อให้ระบบตั้งค่าอัตโนมัติ)</label>
                     <input type="datetime-local" id="createdAtInput"
                         style="width: 100%; padding: 16px 20px; border: 2px solid transparent; border-radius: 12px; font-size: 1.05rem; font-family: 'Outfit', 'Sarabun', sans-serif; background: rgba(255, 255, 255, 0.8); transition: all 0.3s; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);">
@@ -64,6 +74,7 @@
                 <table id="dataTable">
                     <thead>
                         <tr>
+                            <th style="width: 80px;">รูปภาพ</th>
                             <th>ข้อมูลติดต่อ</th>
                             <th>ที่อยู่</th>
                             <th>รายละเอียด</th>
@@ -79,7 +90,7 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=3"></script>
 </body>
 
 </html>

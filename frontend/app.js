@@ -9,9 +9,29 @@ const phoneInput = document.getElementById('phoneInput');
 const addressInput = document.getElementById('addressInput');
 const descInput = document.getElementById('descInput');
 const createdAtInput = document.getElementById('createdAtInput');
+const imageInput = document.getElementById('imageInput');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+const imagePreview = document.getElementById('imagePreview');
+
 const tableBody = document.getElementById('tableBody');
 const cancelBtn = document.getElementById('cancelBtn');
 const submitBtn = form.querySelector('button[type="submit"]');
+
+// Handle image preview
+imageInput.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            imagePreviewContainer.style.display = 'block';
+        }
+        reader.readAsDataURL(file);
+    } else {
+        imagePreview.src = '';
+        imagePreviewContainer.style.display = 'none';
+    }
+});
 
 // Fetch and render data
 async function loadData() {
@@ -29,24 +49,32 @@ function renderTable(data) {
     tableBody.innerHTML = '';
     
     if (data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5"><div class="empty-state">ยังไม่มีข้อมูลรายชื่อในระบบ เริ่มต้นโดยการเพิ่มข้อมูลใหม่ด้านบน!</div></td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">ยังไม่มีข้อมูลรายชื่อในระบบ เริ่มต้นโดยการเพิ่มข้อมูลใหม่ด้านบน!</div></td></tr>';
         return;
     }
 
     data.forEach(item => {
         // Format date to local readable format
         let dateStr = '';
-        if (item.createdAt) {
-            const d = new Date(item.createdAt);
+        const itemDate = item.createdAt || item.createdat;
+        if (itemDate) {
+            const d = new Date(itemDate);
             if (!isNaN(d.getTime())) {
                 dateStr = d.toLocaleString('th-TH');
             } else {
-                dateStr = item.createdAt;
+                dateStr = itemDate;
             }
         }
 
         const tr = document.createElement('tr');
+        
+        // Image Column
+        const imgHtml = item.image 
+            ? `<img src="/api/uploads/${item.image}" alt="${escapeHTML(item.name)}" class="table-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgZmlsbD0iI2U1ZTdlYiI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIvPjwvc3ZnPg=='">` 
+            : `<div class="table-img" style="background: #e2e8f0; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:0.8rem;">No Img</div>`;
+
         tr.innerHTML = `
+            <td data-label="รูปภาพ">${imgHtml}</td>
             <td data-label="ข้อมูลติดต่อ">
                 <div class="td-name">${escapeHTML(item.name)}</div>
                 <div style="font-size: 0.9rem; color: #4f46e5; margin-top: 4px;">${item.phone ? '📞 ' + escapeHTML(item.phone) : ''}</div>
@@ -61,7 +89,7 @@ function renderTable(data) {
             </td>
             <td data-label="จัดการ" style="text-align: center;">
                 <div class="action-buttons" style="justify-content: center;">
-                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}')">แก้ไข</button>
+                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || item.createdat || ''}', '${item.image || ''}')">แก้ไข</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
             </td>
@@ -89,7 +117,6 @@ function formatToDatetimeLocal(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
-    // Output format: YYYY-MM-DDThh:mm
     return date.toISOString().slice(0, 16);
 }
 
@@ -98,45 +125,52 @@ form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const id = nameIdInput.value;
-    const payload = {
-        name: nameInput.value,
-        phone: phoneInput.value,
-        address: addressInput.value,
-        description: descInput.value
-    };
-
-    // Include custom created_at if provided
+    
+    // Use FormData instead of JSON to support file upload
+    const formData = new FormData();
+    formData.append('name', nameInput.value);
+    formData.append('phone', phoneInput.value);
+    formData.append('address', addressInput.value);
+    formData.append('description', descInput.value);
+    
     if (createdAtInput.value) {
-        payload.createdAt = new Date(createdAtInput.value).toISOString();
+        formData.append('createdAt', new Date(createdAtInput.value).toISOString());
+    }
+
+    if (imageInput.files[0]) {
+        formData.append('image', imageInput.files[0]);
     }
 
     try {
+        let res;
         if (id) {
             // Update
-            await fetch(`${API_URL}/${id}`, {
+            res = await fetch(`${API_URL}/${id}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: formData // No Content-Type header needed for FormData
             });
         } else {
             // Create
-            await fetch(API_URL, {
+            res = await fetch(API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: formData
             });
+        }
+        
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
         }
         
         resetForm();
         loadData();
     } catch (error) {
         console.error('Error saving data:', error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล (อาจเป็นเพราะไฟล์รูปใหญ่เกินไป หรือเซิร์ฟเวอร์มีปัญหา)');
     }
 });
 
 // Populate form for edit
-window.editItem = function(id, name, description, phone, address, createdAt) {
+window.editItem = function(id, name, description, phone, address, createdAt, image) {
     nameIdInput.value = id;
     nameInput.value = name;
     descInput.value = description;
@@ -148,13 +182,24 @@ window.editItem = function(id, name, description, phone, address, createdAt) {
     } else {
         createdAtInput.value = '';
     }
+
+    // Show image preview if exists
+    if (image) {
+        imagePreview.src = `/api/uploads/${image}`;
+        imagePreviewContainer.style.display = 'block';
+    } else {
+        imagePreview.src = '';
+        imagePreviewContainer.style.display = 'none';
+    }
+    
+    // Clear file input
+    imageInput.value = '';
     
     formTitle.textContent = 'แก้ไขข้อมูล';
     submitBtn.querySelector('span').textContent = 'อัปเดตข้อมูล';
     submitBtn.classList.add('update-mode');
     cancelBtn.style.display = 'inline-block';
     
-    // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -168,6 +213,9 @@ function resetForm() {
     phoneInput.value = '';
     addressInput.value = '';
     createdAtInput.value = '';
+    imageInput.value = '';
+    imagePreview.src = '';
+    imagePreviewContainer.style.display = 'none';
     
     formTitle.textContent = 'เพิ่มข้อมูลใหม่';
     submitBtn.querySelector('span').textContent = 'บันทึกข้อมูล';

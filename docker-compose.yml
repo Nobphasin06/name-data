@@ -28,6 +28,8 @@ services:
       PORT: 3000
     depends_on:
       - db
+    volumes:
+      - ./backend/uploads:/app/uploads
     restart: unless-stopped
 
   frontend:
@@ -37,6 +39,8 @@ services:
     container_name: name-data-frontend
     ports:
       - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
     depends_on:
       - backend
     restart: unless-stopped
