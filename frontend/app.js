@@ -13,54 +13,132 @@ const tableBody = document.getElementById('tableBody');
 const cancelBtn = document.getElementById('cancelBtn');
 const submitBtn = form.querySelector('button[type="submit"]');
 
+const searchInput = document.getElementById('searchInput');
+const exportCsvBtn = document.getElementById('exportCsvBtn');
+const darkModeToggle = document.getElementById('darkModeToggle');
+
+let allData = []; // Store original data for searching
+
+// Dark Mode Logic
+if (localStorage.getItem('darkMode') === 'enabled') {
+    document.body.classList.add('dark-mode');
+    darkModeToggle.textContent = '☀️';
+}
+darkModeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    if (document.body.classList.contains('dark-mode')) {
+        localStorage.setItem('darkMode', 'enabled');
+        darkModeToggle.textContent = '☀️';
+    } else {
+        localStorage.setItem('darkMode', 'disabled');
+        darkModeToggle.textContent = '🌙';
+    }
+});
+
 // Fetch and render data
 async function loadData() {
+    // Show Loading Spinner
+    tableBody.innerHTML = '<tr><td colspan="5"><div class="loader"></div></td></tr>';
+
     try {
         const res = await fetch(API_URL);
-        const data = await res.json();
-        renderTable(data);
+        allData = await res.json();
+        renderTable(allData);
     } catch (error) {
         console.error('Error fetching data:', error);
+        tableBody.innerHTML = '<tr><td colspan="5"><div class="empty-state" style="color: red;">เกิดข้อผิดพลาดในการโหลดข้อมูล</div></td></tr>';
     }
 }
+
+// Live Search
+searchInput.addEventListener('input', (e) => {
+    const keyword = e.target.value.toLowerCase();
+    const filteredData = allData.filter(item => {
+        return (item.name || '').toLowerCase().includes(keyword) ||
+               (item.phone || '').toLowerCase().includes(keyword) ||
+               (item.address || '').toLowerCase().includes(keyword) ||
+               (item.description || '').toLowerCase().includes(keyword);
+    });
+    renderTable(filteredData);
+});
+
+// Export to CSV
+exportCsvBtn.addEventListener('click', () => {
+    if (allData.length === 0) {
+        Swal.fire('ไม่มีข้อมูล', 'ไม่มีข้อมูลสำหรับ Export', 'info');
+        return;
+    }
+    
+    // CSV Header
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // \uFEFF supports Thai UTF-8 in Excel
+    csvContent += "รหัส,ชื่อ-นามสกุล,เบอร์ติดต่อ,ที่อยู่,รายละเอียด,วันที่บันทึก\n";
+    
+    // Rows
+    allData.forEach(item => {
+        let row = [
+            item.id,
+            `"${item.name || ''}"`,
+            `"${item.phone || ''}"`,
+            `"${item.address || ''}"`,
+            `"${item.description || ''}"`,
+            `"${item.createdAt ? new Date(item.createdAt).toLocaleString('th-TH') : ''}"`
+        ];
+        csvContent += row.join(",") + "\n";
+    });
+
+    // Download Logic
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "name_data_export.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Show Success Toast
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true
+    });
+    Toast.fire({ icon: 'success', title: 'Export ไฟล์สำเร็จ!' });
+});
 
 // Render Table
 function renderTable(data) {
     tableBody.innerHTML = '';
     
     if (data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="5"><div class="empty-state">ยังไม่มีข้อมูลรายชื่อในระบบ เริ่มต้นโดยการเพิ่มข้อมูลใหม่ด้านบน!</div></td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="5"><div class="empty-state">ไม่พบข้อมูลรายชื่อ ลองเพิ่มใหม่เลย!</div></td></tr>';
         return;
     }
 
     data.forEach(item => {
-        // Format date to local readable format
         let dateStr = '';
         if (item.createdAt) {
             const d = new Date(item.createdAt);
-            if (!isNaN(d.getTime())) {
-                dateStr = d.toLocaleString('th-TH');
-            } else {
-                dateStr = item.createdAt;
-            }
+            if (!isNaN(d.getTime())) dateStr = d.toLocaleString('th-TH');
+            else dateStr = item.createdAt;
         }
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td data-label="ข้อมูลติดต่อ">
                 <div class="td-name">${escapeHTML(item.name)}</div>
-                <div style="font-size: 0.9rem; color: #4f46e5; margin-top: 4px;">${item.phone ? '📞 ' + escapeHTML(item.phone) : ''}</div>
+                <div style="font-size: 0.9rem; color: var(--primary); margin-top: 4px;">${item.phone ? '📞 ' + escapeHTML(item.phone) : ''}</div>
                 <div class="td-id">รหัส: ${item.id}</div>
             </td>
             <td data-label="ที่อยู่" style="white-space: normal; min-width: 150px;">
-                <div style="color: #64748b;">${escapeHTML(item.address || '-')}</div>
+                <div style="color: var(--text-muted);">${escapeHTML(item.address || '-')}</div>
             </td>
             <td data-label="รายละเอียด" class="td-desc">${escapeHTML(item.description || '-')}</td>
-            <td data-label="วันที่บันทึก" style="font-size: 0.85rem; color: #64748b;">
+            <td data-label="วันที่บันทึก" style="font-size: 0.85rem; color: var(--text-muted);">
                 ${escapeHTML(dateStr)}
             </td>
             <td data-label="จัดการ" style="text-align: center;">
-                <div class="action-buttons" style="justify-content: center;">
+                <div class="action-buttons">
                     <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}')">แก้ไข</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
@@ -70,26 +148,15 @@ function renderTable(data) {
     });
 }
 
-// Utility to escape HTML
 function escapeHTML(str) {
     if (!str) return '';
-    return String(str).replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag] || tag)
-    );
+    return String(str).replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
 }
 
-// Format Date for datetime-local input
 function formatToDatetimeLocal(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
     if (isNaN(date.getTime())) return '';
-    // Output format: YYYY-MM-DDThh:mm
     return date.toISOString().slice(0, 16);
 }
 
@@ -97,6 +164,15 @@ function formatToDatetimeLocal(isoString) {
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
+    // Show Loading state on button without deleting span
+    const span = submitBtn.querySelector('span');
+    const originalText = span ? span.textContent : 'บันทึกข้อมูล';
+    
+    if (span) {
+        span.textContent = 'กำลังบันทึก...';
+    }
+    submitBtn.disabled = true;
+
     const id = nameIdInput.value;
     const payload = {
         name: nameInput.value,
@@ -105,33 +181,31 @@ form.addEventListener('submit', async (e) => {
         description: descInput.value
     };
 
-    // Include custom created_at if provided
     if (createdAtInput.value) {
         payload.createdAt = new Date(createdAtInput.value).toISOString();
     }
 
     try {
         if (id) {
-            // Update
-            await fetch(`${API_URL}/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await fetch(`${API_URL}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         } else {
-            // Create
-            await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         }
         
         resetForm();
         loadData();
     } catch (error) {
         console.error('Error saving data:', error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        // The span text is already reset correctly inside resetForm() if it succeeded.
+        // But if it failed, we should restore it here just in case.
+        if (submitBtn.querySelector('span') && submitBtn.querySelector('span').textContent === 'กำลังบันทึก...') {
+             submitBtn.querySelector('span').textContent = originalText;
+        }
     }
 });
 
@@ -142,23 +216,18 @@ window.editItem = function(id, name, description, phone, address, createdAt) {
     descInput.value = description;
     phoneInput.value = phone;
     addressInput.value = address;
-    
-    if (createdAt) {
-        createdAtInput.value = formatToDatetimeLocal(createdAt);
-    } else {
-        createdAtInput.value = '';
-    }
+    createdAtInput.value = createdAt ? formatToDatetimeLocal(createdAt) : '';
     
     formTitle.textContent = 'แก้ไขข้อมูล';
-    submitBtn.querySelector('span').textContent = 'อัปเดตข้อมูล';
+    if (submitBtn.querySelector('span')) {
+        submitBtn.querySelector('span').textContent = 'อัปเดตข้อมูล';
+    }
     submitBtn.classList.add('update-mode');
     cancelBtn.style.display = 'inline-block';
     
-    // Smooth scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// Handle Cancel Button
 cancelBtn.addEventListener('click', resetForm);
 
 function resetForm() {
@@ -170,21 +239,35 @@ function resetForm() {
     createdAtInput.value = '';
     
     formTitle.textContent = 'เพิ่มข้อมูลใหม่';
-    submitBtn.querySelector('span').textContent = 'บันทึกข้อมูล';
+    if (submitBtn.querySelector('span')) {
+        submitBtn.querySelector('span').textContent = 'บันทึกข้อมูล';
+    }
     submitBtn.classList.remove('update-mode');
     cancelBtn.style.display = 'none';
 }
 
-// Delete item
+// Delete item using SweetAlert2
 window.deleteItem = async function(id) {
-    if (!confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้?')) return;
-    
-    try {
-        await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-        loadData();
-    } catch (error) {
-        console.error('Error deleting data:', error);
-        alert('เกิดข้อผิดพลาดในการลบข้อมูล');
+    const result = await Swal.fire({
+        title: 'ยืนยันการลบ?',
+        text: "คุณจะไม่สามารถกู้คืนข้อมูลนี้ได้!",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'ใช่, ลบเลย!',
+        cancelButtonText: 'ยกเลิก'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: 'ข้อมูลถูกลบออกจากระบบแล้ว', showConfirmButton: false, timer: 1500 });
+            loadData();
+        } catch (error) {
+            console.error('Error deleting data:', error);
+            Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการลบข้อมูล', 'error');
+        }
     }
 }
 
