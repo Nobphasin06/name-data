@@ -1,4 +1,6 @@
 const API_URL = '/api/names';
+const LOGIN_URL = '/api/login';
+const REGISTER_URL = '/api/register';
 
 // Elements
 const form = document.getElementById('nameForm');
@@ -30,9 +32,25 @@ imageInput.addEventListener('change', function() {
     } else {
         imagePreview.src = '';
         imagePreviewContainer.style.display = 'none';
+    }
+});
 const searchInput = document.getElementById('searchInput');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const darkModeToggle = document.getElementById('darkModeToggle');
+
+const loginContainer = document.getElementById('loginContainer');
+const mainContainer = document.getElementById('mainContainer');
+const loginForm = document.getElementById('loginForm');
+const loginUsernameInput = document.getElementById('loginUsername');
+const loginPasswordInput = document.getElementById('loginPassword');
+const logoutBtn = document.getElementById('logoutBtn');
+
+const authTitle = document.getElementById('authTitle');
+const registerForm = document.getElementById('registerForm');
+const regUsernameInput = document.getElementById('regUsername');
+const regPasswordInput = document.getElementById('regPassword');
+const showRegisterBtn = document.getElementById('showRegisterBtn');
+const showLoginBtn = document.getElementById('showLoginBtn');
 
 let allData = []; // Store original data for searching
 
@@ -58,7 +76,8 @@ async function loadData() {
     tableBody.innerHTML = '<tr><td colspan="5"><div class="loader"></div></td></tr>';
 
     try {
-        const res = await fetch(API_URL);
+        const res = await fetch(API_URL, { headers: getAuthHeaders(true) });
+        if (handleAuthError(res)) return;
         allData = await res.json();
         renderTable(allData);
     } catch (error) {
@@ -128,7 +147,6 @@ function renderTable(data) {
     tableBody.innerHTML = '';
     
     if (data.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="6"><div class="empty-state">ยังไม่มีข้อมูลรายชื่อในระบบ เริ่มต้นโดยการเพิ่มข้อมูลใหม่ด้านบน!</div></td></tr>';
         tableBody.innerHTML = '<tr><td colspan="5"><div class="empty-state">ไม่พบข้อมูลรายชื่อ ลองเพิ่มใหม่เลย!</div></td></tr>';
         return;
     }
@@ -143,10 +161,6 @@ function renderTable(data) {
             } else {
                 dateStr = itemDate;
             }
-        if (item.createdAt) {
-            const d = new Date(item.createdAt);
-            if (!isNaN(d.getTime())) dateStr = d.toLocaleString('th-TH');
-            else dateStr = item.createdAt;
         }
 
         const tr = document.createElement('tr');
@@ -173,8 +187,6 @@ function renderTable(data) {
             <td data-label="จัดการ" style="text-align: center;">
                 <div class="action-buttons" style="justify-content: center;">
                     <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || item.createdat || ''}', '${item.image || ''}')">แก้ไข</button>
-                <div class="action-buttons">
-                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}')">แก้ไข</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
             </td>
@@ -235,27 +247,26 @@ form.addEventListener('submit', async (e) => {
     try {
         let res;
         if (id) {
-            // Update
             res = await fetch(`${API_URL}/${id}`, {
                 method: 'PUT',
-                body: formData // No Content-Type header needed for FormData
-            });
-        } else {
-            // Create
-            res = await fetch(API_URL, {
-                method: 'POST',
+                headers: getAuthHeaders(true),
                 body: formData
             });
-            await fetch(`${API_URL}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         } else {
-            await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
+            res = await fetch(API_URL, {
+                method: 'POST',
+                headers: getAuthHeaders(true),
+                body: formData
+            });
         }
         
+        if (handleAuthError(res)) return;
+
         if (!res.ok) {
             throw new Error(`HTTP error! status: ${res.status}`);
         }
+        
+        Swal.fire({ icon: 'success', title: id ? 'อัปเดตข้อมูลสำเร็จ!' : 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         
         resetForm();
         loadData();
@@ -346,7 +357,8 @@ window.deleteItem = async function(id) {
 
     if (result.isConfirmed) {
         try {
-            await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers: getAuthHeaders(true) });
+            if (handleAuthError(res)) return;
             Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: 'ข้อมูลถูกลบออกจากระบบแล้ว', showConfirmButton: false, timer: 1500 });
             loadData();
         } catch (error) {
@@ -356,5 +368,118 @@ window.deleteItem = async function(id) {
     }
 }
 
+// Auth Logic
+function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (token) {
+        if(loginContainer) loginContainer.style.display = 'none';
+        if(mainContainer) mainContainer.style.display = 'block';
+        loadData();
+    } else {
+        if(loginContainer) loginContainer.style.display = 'block';
+        if(mainContainer) mainContainer.style.display = 'none';
+    }
+}
+
+if (showRegisterBtn && showLoginBtn) {
+    showRegisterBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        if (authTitle) authTitle.textContent = 'สมัครสมาชิก';
+    });
+
+    showLoginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        if (authTitle) authTitle.textContent = 'เข้าสู่ระบบ';
+    });
+}
+
+if (registerForm) {
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = regUsernameInput.value;
+        const password = regPasswordInput.value;
+
+        try {
+            const res = await fetch(REGISTER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res.ok) {
+                Swal.fire({ icon: 'success', title: 'สมัครสมาชิกสำเร็จ!', text: 'กรุณาเข้าสู่ระบบ', showConfirmButton: false, timer: 2000 });
+                registerForm.reset();
+                showLoginBtn.click();
+            } else {
+                const data = await res.json();
+                Swal.fire('ข้อผิดพลาด', data.message || 'ไม่สามารถสมัครสมาชิกได้', 'error');
+            }
+        } catch (error) {
+            console.error('Register error:', error);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+        }
+    });
+}
+
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = loginUsernameInput.value;
+        const password = loginPasswordInput.value;
+
+        try {
+            const res = await fetch(LOGIN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem('token', data.token);
+                loginForm.reset();
+                checkAuth();
+                Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ!', showConfirmButton: false, timer: 1500 });
+            } else {
+                const data = await res.json();
+                Swal.fire('ข้อผิดพลาด', data.message || 'รหัสผ่านไม่ถูกต้อง', 'error');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+        }
+    });
+}
+
+if(logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('token');
+        checkAuth();
+    });
+}
+
+function getAuthHeaders(isFormData = false) {
+    const token = localStorage.getItem('token');
+    const headers = { 'Authorization': `Bearer ${token}` };
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
+    return headers;
+}
+
+function handleAuthError(res) {
+    if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('token');
+        checkAuth();
+        Swal.fire('แจ้งเตือน', 'กรุณาเข้าสู่ระบบ', 'warning');
+        return true;
+    }
+    return false;
+}
+
 // Initial Load
-loadData();
+checkAuth();
