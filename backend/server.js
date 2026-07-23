@@ -5,6 +5,11 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const multer = require('multer');
 const fs = require('fs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-jwt-key';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key';
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
@@ -58,6 +63,33 @@ async function initDB() {
         )
     `);
 
+    // Create users table
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            refresh_token TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Create profiles table
+    await db.exec(`
+        CREATE TABLE IF NOT EXISTS profiles (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            display_name TEXT,
+            avatar_url TEXT,
+            bio TEXT,
+            phone TEXT,
+            updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    `);
+
     // Try to alter table to add new columns just in case it was created before
     try {
         await db.exec('ALTER TABLE names ADD COLUMN phone TEXT');
@@ -76,10 +108,154 @@ initDB().catch(err => {
     console.error('Failed to initialize database:', err);
 });
 
+// JWT Authentication Middleware
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
+
+// --- Auth Routes ---
+
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { email, password, display_name } = req.body;
+        
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        const existingUser = await db.get('SELECT * FROM users WHERE email = ?', email);
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already registered' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const userId = Date.now().toString();
+        
+        await db.run(
+            'INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)',
+            [userId, email, hashedPassword]
+        );
+
+        const profileId = Date.now().toString() + '-p';
+        await db.run(
+            'INSERT INTO profiles (id, user_id, display_name) VALUES (?, ?, ?)',
+            [profileId, userId, display_name || email.split('@')[0]]
+        );
+
+        res.status(201).json({ message: 'User registered successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        
+        const user = await db.get('SELECT * FROM users WHERE email = ?', email);
+        if (!user || !user.is_active) {
+            return res.status(401).json({ message: 'Invalid credentials or inactive account' });
+        }
+
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+        if (!validPassword) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+        const refreshToken = jwt.sign({ id: user.id, email: user.email }, JWT_REFRESH_SECRET, { expiresIn: '7d' });
+
+        await db.run('UPDATE users SET refresh_token = ? WHERE id = ?', [refreshToken, user.id]);
+
+        res.json({ accessToken, refreshToken });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.sendStatus(401);
+
+        const user = await db.get('SELECT * FROM users WHERE refresh_token = ?', token);
+        if (!user) return res.sendStatus(403);
+
+        jwt.verify(token, JWT_REFRESH_SECRET, (err, decoded) => {
+            if (err) return res.sendStatus(403);
+            const accessToken = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+            res.json({ accessToken });
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+    try {
+        await db.run('UPDATE users SET refresh_token = NULL WHERE id = ?', [req.user.id]);
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Profile Routes ---
+
+app.get('/api/profile', authenticateToken, async (req, res) => {
+    try {
+        const profile = await db.get('SELECT * FROM profiles WHERE user_id = ?', req.user.id);
+        if (!profile) return res.status(404).json({ message: 'Profile not found' });
+        res.json(profile);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.patch('/api/profile', authenticateToken, async (req, res) => {
+    try {
+        const updates = req.body;
+        const allowedFields = ['display_name', 'avatar_url', 'bio', 'phone'];
+        
+        let updateQuery = 'UPDATE profiles SET ';
+        let updateValues = [];
+        
+        for (const [key, value] of Object.entries(updates)) {
+            if (allowedFields.includes(key)) {
+                updateQuery += `${key} = ?, `;
+                updateValues.push(value);
+            }
+        }
+        
+        if (updateValues.length === 0) {
+            return res.status(400).json({ message: 'No valid fields provided for update' });
+        }
+        
+        updateQuery += 'updatedAt = ? WHERE user_id = ?';
+        updateValues.push(new Date().toISOString(), req.user.id);
+        
+        await db.run(updateQuery, updateValues);
+        
+        const updatedProfile = await db.get('SELECT * FROM profiles WHERE user_id = ?', req.user.id);
+        res.json(updatedProfile);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // API Routes (CRUD)
 
 // 1. Read All
-app.get('/api/names', async (req, res) => {
+app.get('/api/names', authenticateToken, async (req, res) => {
     try {
         const sortedData = await db.all('SELECT * FROM names ORDER BY createdAt DESC');
         res.json(sortedData);
@@ -89,7 +265,7 @@ app.get('/api/names', async (req, res) => {
 });
 
 // 2. Create
-app.post('/api/names', upload.single('image'), async (req, res) => {
+app.post('/api/names', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const imageUrl = req.file ? `/uploads/${req.file.filename}` : null;
         const newName = {
@@ -116,7 +292,7 @@ app.post('/api/names', upload.single('image'), async (req, res) => {
 });
 
 // 3. Update
-app.put('/api/names/:id', upload.single('image'), async (req, res) => {
+app.put('/api/names/:id', authenticateToken, upload.single('image'), async (req, res) => {
     try {
         const id = req.params.id;
         const existing = await db.get('SELECT * FROM names WHERE id = ?', id);
@@ -145,7 +321,7 @@ app.put('/api/names/:id', upload.single('image'), async (req, res) => {
 });
 
 // 4. Delete
-app.delete('/api/names/:id', async (req, res) => {
+app.delete('/api/names/:id', authenticateToken, async (req, res) => {
     try {
         const id = req.params.id;
         const existing = await db.get('SELECT * FROM names WHERE id = ?', id);
