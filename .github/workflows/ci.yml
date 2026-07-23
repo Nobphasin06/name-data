@@ -27,7 +27,4 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/name-data:latest
-<<<<<< gigi
-            ${{ secrets.DOCKERHUB_USERNAME }}/name-data:${{ github.sha }}=======
             ${{ secrets.DOCKERHUB_USERNAME }}/name-data:${{ github.sha }}
->>>>>> main
