@@ -12,13 +12,13 @@ const addressInput = document.getElementById('addressInput');
 const descInput = document.getElementById('descInput');
 const createdAtInput = document.getElementById('createdAtInput');
 const imageInput = document.getElementById('imageInput');
-const imagePreviewContainer = document.getElementById('imagePreviewContainer');
 const imagePreview = document.getElementById('imagePreview');
-
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
 const tableBody = document.getElementById('tableBody');
 const cancelBtn = document.getElementById('cancelBtn');
 const submitBtn = form.querySelector('button[type="submit"]');
 
+<<<<<< gigi
 // Handle image preview
 imageInput.addEventListener('change', function() {
     const file = this.files[0];
@@ -34,6 +34,8 @@ imageInput.addEventListener('change', function() {
         imagePreviewContainer.style.display = 'none';
     }
 });
+======
+>>>>>> main
 const searchInput = document.getElementById('searchInput');
 const exportCsvBtn = document.getElementById('exportCsvBtn');
 const darkModeToggle = document.getElementById('darkModeToggle');
@@ -53,6 +55,18 @@ const showRegisterBtn = document.getElementById('showRegisterBtn');
 const showLoginBtn = document.getElementById('showLoginBtn');
 
 let allData = []; // Store original data for searching
+
+// Image Preview logic
+imageInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        const url = URL.createObjectURL(this.files[0]);
+        imagePreview.src = url;
+        imagePreviewContainer.style.display = 'block';
+    } else {
+        imagePreview.src = '';
+        imagePreviewContainer.style.display = 'none';
+    }
+});
 
 // Dark Mode Logic
 if (localStorage.getItem('darkMode') === 'enabled') {
@@ -76,8 +90,12 @@ async function loadData() {
     tableBody.innerHTML = '<tr><td colspan="5"><div class="loader"></div></td></tr>';
 
     try {
+<<<<<< gigi
         const res = await fetch(API_URL, { headers: getAuthHeaders(true) });
         if (handleAuthError(res)) return;
+======
+        const res = await authFetch(API_URL);
+>>>>>> main
         allData = await res.json();
         renderTable(allData);
     } catch (error) {
@@ -153,6 +171,7 @@ function renderTable(data) {
 
     data.forEach(item => {
         let dateStr = '';
+<<<<<< gigi
         const itemDate = item.createdAt || item.createdat;
         if (itemDate) {
             const d = new Date(itemDate);
@@ -161,17 +180,20 @@ function renderTable(data) {
             } else {
                 dateStr = itemDate;
             }
+======
+        if (item.createdAt) {
+            const d = new Date(item.createdAt);
+            if (!isNaN(d.getTime())) dateStr = d.toLocaleString('th-TH');
+            else dateStr = item.createdAt;
+>>>>>> main
         }
 
         const tr = document.createElement('tr');
-        
-        // Image Column
-        const imgHtml = item.image 
-            ? `<img src="/api/uploads/${item.image}" alt="${escapeHTML(item.name)}" class="table-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgZmlsbD0iI2U1ZTdlYiI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIvPjwvc3ZnPg=='">` 
-            : `<div class="table-img" style="background: #e2e8f0; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:0.8rem;">No Img</div>`;
-
+        const imgTag = item.imageUrl ? `<img src="${item.imageUrl}" alt="Profile" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%;">` : `<div style="width: 50px; height: 50px; border-radius: 50%; background-color: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 0.8rem;">N/A</div>`;
         tr.innerHTML = `
-            <td data-label="รูปภาพ">${imgHtml}</td>
+            <td data-label="รูปภาพ" style="text-align: center;">
+                ${imgTag}
+            </td>
             <td data-label="ข้อมูลติดต่อ">
                 <div class="td-name">${escapeHTML(item.name)}</div>
                 <div style="font-size: 0.9rem; color: var(--primary); margin-top: 4px;">${item.phone ? '📞 ' + escapeHTML(item.phone) : ''}</div>
@@ -185,8 +207,13 @@ function renderTable(data) {
                 ${escapeHTML(dateStr)}
             </td>
             <td data-label="จัดการ" style="text-align: center;">
+<<<<<< gigi
                 <div class="action-buttons" style="justify-content: center;">
                     <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || item.createdat || ''}', '${item.image || ''}')">แก้ไข</button>
+======
+                <div class="action-buttons">
+                    <button class="btn-edit" onclick="editItem('${item.id}', '${escapeHTML(item.name.replace(/'/g, "\\'"))}', '${escapeHTML((item.description||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.phone||'').replace(/'/g, "\\'"))}', '${escapeHTML((item.address||'').replace(/'/g, "\\'"))}', '${item.createdAt || ''}', '${item.imageUrl || ''}')">แก้ไข</button>
+>>>>>> main
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">ลบ</button>
                 </div>
             </td>
@@ -221,32 +248,22 @@ form.addEventListener('submit', async (e) => {
     submitBtn.disabled = true;
 
     const id = nameIdInput.value;
-    
-    // Use FormData instead of JSON to support file upload
     const formData = new FormData();
     formData.append('name', nameInput.value);
     formData.append('phone', phoneInput.value);
     formData.append('address', addressInput.value);
     formData.append('description', descInput.value);
-    
-    const payload = {
-        name: nameInput.value,
-        phone: phoneInput.value,
-        address: addressInput.value,
-        description: descInput.value
-    };
 
     if (createdAtInput.value) {
         formData.append('createdAt', new Date(createdAtInput.value).toISOString());
     }
-
     if (imageInput.files[0]) {
         formData.append('image', imageInput.files[0]);
     }
 
     try {
-        let res;
         if (id) {
+<<<<<< gigi
             res = await fetch(`${API_URL}/${id}`, {
                 method: 'PUT',
                 headers: getAuthHeaders(true),
@@ -268,11 +285,19 @@ form.addEventListener('submit', async (e) => {
         
         Swal.fire({ icon: 'success', title: id ? 'อัปเดตข้อมูลสำเร็จ!' : 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         
+======
+            await authFetch(`${API_URL}/${id}`, { method: 'PUT', body: formData });
+            Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
+        } else {
+            await authFetch(API_URL, { method: 'POST', body: formData });
+            Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
+        }
+        
+>>>>>> main
         resetForm();
         loadData();
     } catch (error) {
         console.error('Error saving data:', error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล (อาจเป็นเพราะไฟล์รูปใหญ่เกินไป หรือเซิร์ฟเวอร์มีปัญหา)');
         Swal.fire('ข้อผิดพลาด', 'เกิดข้อผิดพลาดในการบันทึกข้อมูล', 'error');
     } finally {
         submitBtn.disabled = false;
@@ -285,31 +310,22 @@ form.addEventListener('submit', async (e) => {
 });
 
 // Populate form for edit
-window.editItem = function(id, name, description, phone, address, createdAt, image) {
+window.editItem = function(id, name, description, phone, address, createdAt, imageUrl) {
     nameIdInput.value = id;
     nameInput.value = name;
     descInput.value = description;
     phoneInput.value = phone;
     addressInput.value = address;
+    createdAtInput.value = createdAt ? formatToDatetimeLocal(createdAt) : '';
     
-    if (createdAt) {
-        createdAtInput.value = formatToDatetimeLocal(createdAt);
-    } else {
-        createdAtInput.value = '';
-    }
-
-    // Show image preview if exists
-    if (image) {
-        imagePreview.src = `/api/uploads/${image}`;
+    imageInput.value = '';
+    if (imageUrl) {
+        imagePreview.src = imageUrl;
         imagePreviewContainer.style.display = 'block';
     } else {
         imagePreview.src = '';
         imagePreviewContainer.style.display = 'none';
     }
-    
-    // Clear file input
-    imageInput.value = '';
-    createdAtInput.value = createdAt ? formatToDatetimeLocal(createdAt) : '';
     
     formTitle.textContent = 'แก้ไขข้อมูล';
     if (submitBtn.querySelector('span')) {
@@ -357,8 +373,12 @@ window.deleteItem = async function(id) {
 
     if (result.isConfirmed) {
         try {
+<<<<<< gigi
             const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE', headers: getAuthHeaders(true) });
             if (handleAuthError(res)) return;
+======
+            await authFetch(`${API_URL}/${id}`, { method: 'DELETE' });
+>>>>>> main
             Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: 'ข้อมูลถูกลบออกจากระบบแล้ว', showConfirmButton: false, timer: 1500 });
             loadData();
         } catch (error) {
