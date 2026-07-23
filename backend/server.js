@@ -137,6 +137,32 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ message: 'Email already registered' });
         }
 
+<<<<<< gigi
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create default admin user if no users exist
+        const userCount = await pool.query('SELECT COUNT(*) FROM users');
+        if (parseInt(userCount.rows[0].count) === 0) {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash('password', salt);
+            await pool.query(
+                'INSERT INTO users (username, password_hash) VALUES ($1, $2)',
+                ['admin', hashedPassword]
+            );
+            console.log('Default admin user created.');
+        }
+
+        console.log("PostgreSQL Database initialized.");
+    } catch (err) {
+        console.error('Failed to initialize database:', err);
+======
         const hashedPassword = await bcrypt.hash(password, 10);
         const userId = Date.now().toString();
         
@@ -154,6 +180,7 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
         res.status(500).json({ error: error.message });
+>>>>>> main
     }
 });
 
@@ -252,7 +279,62 @@ app.patch('/api/profile', authenticateToken, async (req, res) => {
     }
 });
 
+const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_jwt_key';
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (token == null) return res.status(401).json({ message: 'Unauthorized: No token provided' });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ message: 'Forbidden: Invalid token' });
+        req.user = user;
+        next();
+    });
+}
+
+// --- Auth Routes ---
+
+app.post('/api/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ message: 'Username and password required' });
+
+        const existing = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        if (existing.rows.length > 0) return res.status(400).json({ message: 'Username already exists' });
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, hashedPassword]);
+        res.status(201).json({ message: 'User created successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
+        
+        if (result.rows.length === 0) return res.status(400).json({ message: 'Invalid credentials' });
+        
+        const user = result.rows[0];
+        const validPassword = await bcrypt.compare(password, user.password_hash);
+        
+        if (!validPassword) return res.status(400).json({ message: 'Invalid credentials' });
+        
+        const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1d' });
+        res.json({ token, message: 'Logged in successfully' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // API Routes (CRUD)
+app.use('/api/names', authenticateToken);
 
 // 1. Read All
 app.get('/api/names', authenticateToken, async (req, res) => {
