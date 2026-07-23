@@ -42,16 +42,12 @@
         <h2>สมัครสมาชิก</h2>
         <form id="registerForm">
             <div class="form-group">
-                <label for="display_name">ชื่อที่แสดง</label>
-                <input type="text" id="display_name" required>
-            </div>
-            <div class="form-group">
-                <label for="email">อีเมล</label>
-                <input type="email" id="email" required autocomplete="email">
+                <label for="username">ชื่อผู้ใช้ (Username)</label>
+                <input type="text" id="username" required autocomplete="username" placeholder="กรอกชื่อผู้ใช้">
             </div>
             <div class="form-group">
                 <label for="password">รหัสผ่าน</label>
-                <input type="password" id="password" required minlength="6">
+                <input type="password" id="password" required minlength="6" placeholder="อย่างน้อย 6 ตัวอักษร">
             </div>
             <button type="submit" style="width: 100%; justify-content: center;">สมัครสมาชิก</button>
         </form>
@@ -60,25 +56,24 @@
         </div>
     </div>
 
-    <script src="auth.js"></script>
+    <script src="auth.js?v=6"></script>
     <script>
         redirectIfLoggedIn();
 
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
-            const display_name = document.getElementById('display_name').value;
             const btn = e.target.querySelector('button');
             
             btn.textContent = 'กำลังสมัครสมาชิก...';
             btn.disabled = true;
 
             try {
-                const res = await fetch('/api/auth/register', {
+                const res = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password, display_name })
+                    body: JSON.stringify({ username, password })
                 });
 
                 const data = await res.json();
