@@ -42,12 +42,12 @@
         <h2>เข้าสู่ระบบ</h2>
         <form id="loginForm">
             <div class="form-group">
-                <label for="email">อีเมล</label>
-                <input type="email" id="email" required autocomplete="email">
+                <label for="username">ชื่อผู้ใช้ (Username)</label>
+                <input type="text" id="username" required autocomplete="username" placeholder="กรอกชื่อผู้ใช้">
             </div>
             <div class="form-group">
                 <label for="password">รหัสผ่าน</label>
-                <input type="password" id="password" required>
+                <input type="password" id="password" required placeholder="รหัสผ่านของคุณ">
             </div>
             <button type="submit" style="width: 100%; justify-content: center;">เข้าสู่ระบบ</button>
         </form>
@@ -56,13 +56,13 @@
         </div>
     </div>
 
-    <script src="auth.js"></script>
+    <script src="auth.js?v=6"></script>
     <script>
         redirectIfLoggedIn();
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const btn = e.target.querySelector('button');
             
@@ -70,20 +70,20 @@
             btn.disabled = true;
 
             try {
-                const res = await fetch('/api/auth/login', {
+                const res = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ username, password })
                 });
 
                 const data = await res.json();
                 if (res.ok) {
-                    setTokens(data.accessToken, data.refreshToken);
+                    localStorage.setItem('token', data.token);
                     Swal.fire({ icon: 'success', title: 'เข้าสู่ระบบสำเร็จ', showConfirmButton: false, timer: 1500 }).then(() => {
                         window.location.href = 'index.html';
                     });
                 } else {
-                    Swal.fire('ข้อผิดพลาด', data.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง', 'error');
+                    Swal.fire('ข้อผิดพลาด', data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
                 }
             } catch (err) {
                 Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');

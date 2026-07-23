@@ -1,16 +1,14 @@
 // auth.js
 function getAccessToken() {
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem('token');
 }
 
-function setTokens(accessToken, refreshToken) {
-    localStorage.setItem('accessToken', accessToken);
-    if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+function setTokens(token) {
+    localStorage.setItem('token', token);
 }
 
 function clearTokens() {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('token');
 }
 
 function requireAuth() {
@@ -48,47 +46,15 @@ async function authFetch(url, options = {}) {
 
     // Handle token expiration (401 or 403)
     if (response.status === 401 || response.status === 403) {
-        const refreshToken = localStorage.getItem('refreshToken');
-        if (refreshToken) {
-            // Attempt to refresh
-            try {
-                const refreshRes = await fetch('/api/auth/refresh', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: refreshToken })
-                });
-
-                if (refreshRes.ok) {
-                    const data = await refreshRes.json();
-                    setTokens(data.accessToken, refreshToken);
-                    
-                    // Retry original request
-                    options.headers['Authorization'] = `Bearer ${data.accessToken}`;
-                    response = await fetch(url, options);
-                } else {
-                    // Refresh failed, clear and redirect
-                    clearTokens();
-                    window.location.href = 'login.html';
-                }
-            } catch (err) {
-                clearTokens();
-                window.location.href = 'login.html';
-            }
-        } else {
-            clearTokens();
-            window.location.href = 'login.html';
-        }
+        clearTokens();
+        window.location.href = 'login.html';
     }
 
     return response;
 }
 
 // Global logout function
-async function logout() {
-    const token = getAccessToken();
-    if (token) {
-        await authFetch('/api/auth/logout', { method: 'POST' });
-    }
+function logout() {
     clearTokens();
     window.location.href = 'login.html';
 }
