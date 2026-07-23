@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>สมัครสมาชิก - Name Data</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .auth-panel {
+            max-width: 400px;
+            width: 100%;
+            padding: 30px;
+        }
+        .auth-panel h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+        .auth-links {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+        .auth-links a {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="glass-panel auth-panel">
+        <h2>สมัครสมาชิก</h2>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="display_name">ชื่อที่แสดง</label>
+                <input type="text" id="display_name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">อีเมล</label>
+                <input type="email" id="email" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label for="password">รหัสผ่าน</label>
+                <input type="password" id="password" required minlength="6">
+            </div>
+            <button type="submit" style="width: 100%; justify-content: center;">สมัครสมาชิก</button>
+        </form>
+        <div class="auth-links">
+            มีบัญชีอยู่แล้ว? <a href="login.html">เข้าสู่ระบบ</a>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        redirectIfLoggedIn();
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const display_name = document.getElementById('display_name').value;
+            const btn = e.target.querySelector('button');
+            
+            btn.textContent = 'กำลังสมัครสมาชิก...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, display_name })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    Swal.fire({ icon: 'success', title: 'สมัครสมาชิกสำเร็จ!', text: 'กรุณาเข้าสู่ระบบ', showConfirmButton: true }).then(() => {
+                        window.location.href = 'login.html';
+                    });
+                } else {
+                    Swal.fire('ข้อผิดพลาด', data.message || data.error || 'เกิดข้อผิดพลาดในการสมัครสมาชิก', 'error');
+                }
+            } catch (err) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            } finally {
+                btn.textContent = 'สมัครสมาชิก';
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

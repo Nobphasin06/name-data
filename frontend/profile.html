@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรไฟล์ - Name Data</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .profile-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container profile-container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <h1>ข้อมูลโปรไฟล์</h1>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.location.href='index.html'" class="btn-icon" title="กลับหน้าแรก">
+                    🏠
+                </button>
+                <button id="darkModeToggle" class="btn-icon" title="เปิด/ปิด โหมดกลางคืน">
+                    🌙
+                </button>
+                <button onclick="logout()" class="btn-icon" style="color: #ef4444;" title="ออกจากระบบ">
+                    🚪
+                </button>
+            </div>
+        </div>
+
+        <div class="glass-panel form-section">
+            <h2 id="formTitle">แก้ไขโปรไฟล์</h2>
+            <form id="profileForm">
+                <div class="form-group">
+                    <label for="display_name">ชื่อที่แสดง</label>
+                    <input type="text" id="display_name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">เบอร์ติดต่อ</label>
+                    <input type="text" id="phone">
+                </div>
+
+                <div class="form-group">
+                    <label for="bio">คำอธิบายตัวตน (Bio)</label>
+                    <input type="text" id="bio">
+                </div>
+
+                <div class="form-group">
+                    <label for="avatar_url">ลิงก์รูปภาพโปรไฟล์ (URL)</label>
+                    <input type="text" id="avatar_url" placeholder="https://example.com/avatar.jpg">
+                    <div id="avatarPreviewContainer" style="display: none; margin-top: 10px; text-align: center;">
+                        <img id="avatarPreview" src="" alt="Avatar" style="width: 100px; height: 100px; object-fit: cover; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" style="width: 100%; justify-content: center;">บันทึกโปรไฟล์</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        requireAuth();
+
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        if (localStorage.getItem('darkMode') === 'enabled') {
+            document.body.classList.add('dark-mode');
+            darkModeToggle.textContent = '☀️';
+        }
+        darkModeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('dark-mode');
+            if (document.body.classList.contains('dark-mode')) {
+                localStorage.setItem('darkMode', 'enabled');
+                darkModeToggle.textContent = '☀️';
+            } else {
+                localStorage.setItem('darkMode', 'disabled');
+                darkModeToggle.textContent = '🌙';
+            }
+        });
+
+        const avatarInput = document.getElementById('avatar_url');
+        const avatarPreview = document.getElementById('avatarPreview');
+        const avatarPreviewContainer = document.getElementById('avatarPreviewContainer');
+
+        avatarInput.addEventListener('input', () => {
+            if (avatarInput.value) {
+                avatarPreview.src = avatarInput.value;
+                avatarPreviewContainer.style.display = 'block';
+            } else {
+                avatarPreviewContainer.style.display = 'none';
+            }
+        });
+
+        async function loadProfile() {
+            try {
+                const res = await authFetch('/api/profile');
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('display_name').value = data.display_name || '';
+                    document.getElementById('phone').value = data.phone || '';
+                    document.getElementById('bio').value = data.bio || '';
+                    
+                    if (data.avatar_url) {
+                        avatarInput.value = data.avatar_url;
+                        avatarPreview.src = data.avatar_url;
+                        avatarPreviewContainer.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                console.error('Error loading profile:', err);
+            }
+        }
+
+        document.getElementById('profileForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.textContent;
+            btn.textContent = 'กำลังบันทึก...';
+            btn.disabled = true;
+
+            const updates = {
+                display_name: document.getElementById('display_name').value,
+                phone: document.getElementById('phone').value,
+                bio: document.getElementById('bio').value,
+                avatar_url: document.getElementById('avatar_url').value
+            };
+
+            try {
+                const res = await authFetch('/api/profile', {
+                    method: 'PATCH',
+                    body: JSON.stringify(updates)
+                });
+                
+                if (res.ok) {
+                    Swal.fire({ icon: 'success', title: 'บันทึกโปรไฟล์สำเร็จ', showConfirmButton: false, timer: 1500 });
+                } else {
+                    Swal.fire('ข้อผิดพลาด', 'ไม่สามารถบันทึกโปรไฟล์ได้', 'error');
+                }
+            } catch (err) {
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+
+        loadProfile();
+    </script>
+</body>
+</html>

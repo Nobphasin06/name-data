@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="style.css">
     <!-- SweetAlert2 CSS & JS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="auth.js"></script>
+    <script>
+        requireAuth();
+    </script>
 </head>
 
 <body>
@@ -15,9 +19,17 @@
         <!-- Top Bar -->
         <div class="top-bar">
             <h1>ระบบจัดการข้อมูล (Name Data)</h1>
-            <button id="darkModeToggle" class="btn-icon" title="เปิด/ปิด โหมดกลางคืน">
-                🌙
-            </button>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.location.href='profile.html'" class="btn-icon" title="โปรไฟล์">
+                    👤
+                </button>
+                <button id="darkModeToggle" class="btn-icon" title="เปิด/ปิด โหมดกลางคืน">
+                    🌙
+                </button>
+                <button onclick="logout()" class="btn-icon" style="color: #ef4444;" title="ออกจากระบบ">
+                    🚪
+                </button>
+            </div>
         </div>
 
         <!-- Form Section -->

@@ -56,7 +56,7 @@ async function loadData() {
     tableBody.innerHTML = '<tr><td colspan="5"><div class="loader"></div></td></tr>';
 
     try {
-        const res = await fetch(API_URL);
+        const res = await authFetch(API_URL);
         allData = await res.json();
         renderTable(allData);
     } catch (error) {
@@ -208,10 +208,10 @@ form.addEventListener('submit', async (e) => {
 
     try {
         if (id) {
-            await fetch(`${API_URL}/${id}`, { method: 'PUT', body: formData });
+            await authFetch(`${API_URL}/${id}`, { method: 'PUT', body: formData });
             Swal.fire({ icon: 'success', title: 'อัปเดตข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         } else {
-            await fetch(API_URL, { method: 'POST', body: formData });
+            await authFetch(API_URL, { method: 'POST', body: formData });
             Swal.fire({ icon: 'success', title: 'เพิ่มข้อมูลสำเร็จ!', showConfirmButton: false, timer: 1500 });
         }
         
@@ -294,7 +294,7 @@ window.deleteItem = async function(id) {
 
     if (result.isConfirmed) {
         try {
-            await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+            await authFetch(`${API_URL}/${id}`, { method: 'DELETE' });
             Swal.fire({ icon: 'success', title: 'ลบสำเร็จ!', text: 'ข้อมูลถูกลบออกจากระบบแล้ว', showConfirmButton: false, timer: 1500 });
             loadData();
         } catch (error) {
